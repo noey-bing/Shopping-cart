@@ -2,35 +2,45 @@ import { useState, useEffect } from "react";
 import ProductList from "./ProductList";
 import Cart from "./Cart";
 
+// All API requests go through Vite's proxy (/api → http://localhost:8000)
 const API = "/api";
 
 export default function App() {
-  // products: list fetched from the database
   const [products, setProducts] = useState([]);
-  // cart: list of items currently in the cart
   const [cart, setCart] = useState([]);
-  // view: which page to show — "products" or "cart"
-  const [view, setView] = useState("products");
+  const [view, setView] = useState("products"); // "products" or "cart"
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Load products and cart when the app first opens
+  // Fetch data from both products and cart on first render
   useEffect(() => {
-    fetchProducts();
-    fetchCart();
+    async function loadData() {
+      try {
+        await Promise.all([fetchProducts(), fetchCart()]);
+      } catch {
+        setError("Could not connect to the server. Make sure the backend is running.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
   }, []);
 
+  // Fetch data from products
   async function fetchProducts() {
     const res = await fetch(`${API}/products`);
     const data = await res.json();
     setProducts(data);
   }
 
+  // Fetch data from cart
   async function fetchCart() {
     const res = await fetch(`${API}/cart`);
     const data = await res.json();
     setCart(data);
   }
 
-  // Add a product to the cart (or increase its quantity if already there)
+  // API for adding item to cart
   async function addToCart(product) {
     await fetch(`${API}/cart`, {
       method: "POST",
@@ -42,10 +52,10 @@ export default function App() {
         image: product.image,
       }),
     });
-    fetchCart(); // refresh cart after adding
+    fetchCart();
   }
 
-  // Change the quantity of an item already in the cart
+  // API for updating item quantity in the cart
   async function updateQuantity(itemId, quantity) {
     await fetch(`${API}/cart/${itemId}`, {
       method: "PUT",
@@ -55,29 +65,31 @@ export default function App() {
     fetchCart();
   }
 
-  // Remove an item from the cart
+  // API for deleting the item from the cart
   async function removeFromCart(itemId) {
     await fetch(`${API}/cart/${itemId}`, { method: "DELETE" });
     fetchCart();
   }
 
-  // Total number of items across all cart entries
+  // Total number of individual items added in cart
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
+
+  // Loading message based on the connection status
+  if (loading) return <p className="status-msg">Loading...</p>;
+  if (error) return <p className="status-msg error">{error}</p>;
+
+
+  // Startup header and page (products view)
   return (
     <div>
-      {/* ── Header ───────────────────────────────────── */}
       <header className="header">
-        <h1 className="logo" onClick={() => setView("products")}>
-          ShopCart
-        </h1>
+        <h1 className="logo" onClick={() => setView("products")}>Soyeon's Cart</h1>
         <button className="cart-btn" onClick={() => setView("cart")}>
-          🛒 Cart
-          {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
+          Cart
+          {cartCount > 0 && <span className="cart-badge">{cartCount}</span>} 
         </button>
       </header>
-
-      {/* ── Main content ─────────────────────────────── */}
       <main className="main">
         {view === "products" ? (
           <ProductList products={products} onAddToCart={addToCart} />
